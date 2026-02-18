@@ -7,7 +7,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
 
-from vector_store import VectorStoreManager
+from src.vector_store import VectorStoreManager
 
 
 # Default prompt template for question answering

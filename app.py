@@ -1,7 +1,13 @@
 """Streamlit web interface for the Document Q&A system."""
 import streamlit as st
 import os
+import sys
+from pathlib import Path
 from typing import List
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent))
+
 from src.document_loader import load_multiple_documents
 from src.text_splitter import split_documents
 from src.vector_store import VectorStoreManager
