@@ -1,11 +1,11 @@
 """RAG (Retrieval-Augmented Generation) pipeline for question answering."""
 import os
 from typing import List, Optional, Dict
-from langchain_huggingface import HuggingFaceHub
+from langchain_community.chat_models import ChatHuggingFace
+from langchain_community.llms import HuggingFaceHub
 from langchain.chains import ConversationalRetrievalChain
 from langchain.schema import Document
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
 from vector_store import VectorStoreManager
 
@@ -36,7 +36,8 @@ class RAGPipeline:
     def __init__(
         self,
         vectorstore_manager: VectorStoreManager,
-        model_name: str = "google/flan-t5-base",
+        model_name: str = "microsoft/Phi-3-mini-128k-instruct",
+        hf_token: Optional[str] = None,
         temperature: float = 0.0
     ):
         """
@@ -45,13 +46,21 @@ class RAGPipeline:
         Args:
             vectorstore_manager: VectorStoreManager instance
             model_name: HuggingFace model to use
+            hf_token: HuggingFace token (optional, for rate limit increase)
             temperature: Temperature for generation
         """
         self.vectorstore_manager = vectorstore_manager
         self.llm = HuggingFaceHub(
             repo_id=model_name,
-            model_kwargs={"temperature": temperature, "max_new_tokens": 500}
+            task="text-generation",
+            model_kwargs={
+                "temperature": temperature,
+                "max_new_tokens": 512,
+                "top_p": 0.7,
+            },
+            huggingfacehub_api_token=hf_token or os.getenv("HF_TOKEN")
         )
+        self.chat_model = ChatHuggingFace(llm=self.llm)
         self.qa_chain = None
         self._setup_chain()
     
@@ -60,9 +69,8 @@ class RAGPipeline:
         if self.vectorstore_manager.vectorstore is None:
             raise ValueError("Vector store not initialized")
         
-        # Create a simple QA chain
         self.qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
+            llm=self.chat_model,
             retriever=self.vectorstore_manager.vectorstore.as_retriever(
                 search_kwargs={"k": 4}
             ),

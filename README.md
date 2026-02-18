@@ -14,37 +14,59 @@ An AI-powered system that allows users to upload documents (PDF, TXT, CSV) and a
 - **Python** - Core language
 - **LangChain** - LLM framework & RAG pipeline
 - **ChromaDB** - Vector database
-- **OpenAI** - LLM & embeddings
+- **HuggingFace** - Free LLM inference (Phi-3, Mistral, etc.)
+- **Sentence-Transformers** - Free embeddings
 - **Streamlit** - Web UI
 
 ## Installation
 
-1. Clone the repository:
+1. Clone and setup:
 ```bash
 git clone <repo-url>
 cd docqa
-```
-
-2. Create virtual environment:
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+venv\Scripts\activate  # On Windows
 pip install -r requirements.txt
 ```
 
-4. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env and add your OpenAI API key
-```
+2. (Optional) Get HuggingFace token for higher rate limits:
+   - https://huggingface.co/settings/tokens
 
-5. Run the application:
+3. Run the application:
 ```bash
 streamlit run app.py
+```
+
+## Usage
+
+1. Open the application in your browser (usually http://localhost:8501)
+2. Upload documents via the sidebar (PDF, TXT, or CSV)
+3. Click "Process Documents" to create the knowledge base
+4. Ask questions about your documents in the chat input
+
+## Cost
+
+**Free!** Uses HuggingFace Inference API free tier.
+
+## Project Structure
+
+```
+docqa/
+├── app.py                    # Main Streamlit application
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment variables template
+├── src/
+│   ├── __init__.py
+│   ├── document_loader.py    # Document loading utilities
+│   ├── text_splitter.py      # Text chunking
+│   ├── vector_store.py       # ChromaDB management
+│   └── rag_pipeline.py       # RAG pipeline
+└── data/                     # Data storage (created at runtime)
+```
+
+## License
+
+MIT
 ```
 
 ## Usage
@@ -70,9 +92,9 @@ docqa/
 └── data/                     # Data storage (created at runtime)
 ```
 
-## Demo Video
+## Cost
 
-[Add link to demo video]
+**$0** - Everything runs locally on your machine!
 
 ## License
 
