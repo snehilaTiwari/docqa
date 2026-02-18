@@ -80,7 +80,7 @@ class RAGPipeline:
     def ask(
         self,
         question: str,
-        chat_history: list[tuple[str, str]] | None = None
+        chat_history: Optional[list[tuple[str, str]]] = None
     ) -> dict[str, any]:
         """
         Ask a question and get an answer.
