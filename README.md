@@ -64,31 +64,3 @@ docqa/
 └── data/                     # Data storage (created at runtime)
 ```
 
-## License
-
-MIT
-```
-
-## Usage
-
-1. Open the application in your browser (usually http://localhost:8501)
-2. Upload documents via the sidebar (PDF, TXT, or CSV)
-3. Click "Process Documents" to create the knowledge base
-4. Ask questions about your documents in the chat input
-
-## Project Structure
-
-```
-docqa/
-├── app.py                    # Main Streamlit application
-├── requirements.txt          # Python dependencies
-├── .env.example              # Environment variables template
-├── src/
-│   ├── __init__.py
-│   ├── document_loader.py    # Document loading utilities
-│   ├── text_splitter.py      # Text chunking
-│   ├── vector_store.py       # ChromaDB management
-│   └── rag_pipeline.py       # RAG pipeline
-└── data/                     # Data storage (created at runtime)
-```
-
