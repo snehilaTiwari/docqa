@@ -92,14 +92,3 @@ docqa/
 └── data/                     # Data storage (created at runtime)
 ```
 
-## Cost
-
-**$0** - Everything runs locally on your machine!
-
-## License
-
-MIT
-
-## Author
-
-[Snehi] - [snehi@example.com]
