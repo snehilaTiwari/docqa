@@ -148,13 +148,16 @@ def main():
         last_result = None
         
         if question:
-            with st.spinner("Thinking..."):
+            try:
                 result = st.session_state.rag_pipeline.ask(
                     question,
                     st.session_state.chat_history
                 )
-                st.session_state.chat_history = result["chat_history"]
+                # Add to chat history
+                st.session_state.chat_history.append((question, result["answer"]))
                 last_result = result
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
         
         # Display chat history
         st.markdown("### 💬 Conversation")

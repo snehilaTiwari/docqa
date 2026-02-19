@@ -1,41 +1,24 @@
-"""RAG (Retrieval-Augmented Generation) pipeline for question answering."""
+"""RAG pipeline using HuggingFace via OpenAI-compatible API."""
 import os
+import logging
+from openai import OpenAI
 from typing import List, Optional, Dict
-from langchain_community.llms import HuggingFaceEndpoint
-from langchain.chains import ConversationalRetrievalChain
 from langchain.schema import Document
-from langchain.prompts import PromptTemplate
 
 from src.vector_store import VectorStoreManager
 
-
-# Default prompt template for question answering
-QA_PROMPT = PromptTemplate(
-    template="""You are a helpful assistant that answers questions based on the provided context.
-
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-- Answer based ONLY on the provided context
-- If the answer is not in the context, say "I don't have enough information to answer that"
-- Be concise and accurate
-- Cite the source when possible
-
-Answer:""",
-    input_variables=["context", "question"]
-)
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class RAGPipeline:
-    """Handles question answering using RAG architecture."""
+    """Handles question answering using RAG with HuggingFace Inference API."""
     
     def __init__(
         self,
         vectorstore_manager: VectorStoreManager,
-        model_name: str = "mistralai/Mistral-7B-Instruct-v0.2",
+        model_name: str = "Qwen/Qwen2.5-7B-Instruct:together",
         hf_token: Optional[str] = None,
         temperature: float = 0.0
     ):
@@ -49,57 +32,100 @@ class RAGPipeline:
             temperature: Temperature for generation
         """
         self.vectorstore_manager = vectorstore_manager
-        self.llm = HuggingFaceEndpoint(
-            endpoint_url=f"https://api-inference.huggingface.co/models/{model_name}",
-            huggingfacehub_api_token=hf_token or os.getenv("HF_TOKEN"),
-            task="text-generation",
-            temperature=temperature,
-            max_new_tokens=512,
+        self.model_name = model_name
+        self.hf_token = hf_token or os.getenv("HF_TOKEN")
+        self.temperature = temperature
+        
+        # Use HuggingFace router with OpenAI client
+        self.client = OpenAI(
+            base_url="https://router.huggingface.co/v1",
+            api_key=self.hf_token
         )
-        self.qa_chain = None
-        self._setup_chain()
     
-    def _setup_chain(self):
-        """Set up the retrieval chain."""
+    def _get_relevant_docs(self, question: str, k: int = 4) -> List[Document]:
+        """Get relevant documents from vector store."""
         if self.vectorstore_manager.vectorstore is None:
             raise ValueError("Vector store not initialized")
         
-        self.qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=self.llm,
-            retriever=self.vectorstore_manager.vectorstore.as_retriever(
-                search_kwargs={"k": 4}
-            ),
-            return_source_documents=True
+        return self.vectorstore_manager.similarity_search(question, k=k)
+    
+    def _create_prompt(self, question: str, docs: List[Document]) -> str:
+        """Create prompt from question and documents."""
+        context = "\n\n".join([doc.page_content for doc in docs])
+        
+        prompt = f"""Based on the following context, answer the question. If you cannot find the answer in the context, say "I don't have enough information to answer that."
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+        return prompt
+    
+    def _call_huggingface(self, prompt: str) -> str:
+        """Call HuggingFace via OpenAI-compatible API."""
+        logger.info(f"Calling HF with model: {self.model_name}")
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=self.temperature,
+            max_tokens=512
         )
+        
+        content = response.choices[0].message.content
+        if content is None:
+            raise ValueError("Empty response from model")
+        logger.info(f"Response received: {content[:100]}...")
+        return content
     
     def ask(
         self,
         question: str,
-        chat_history: Optional[list[tuple[str, str]]] = None
-    ) -> dict[str, any]:
+        chat_history: Optional[List[tuple]] = None
+    ) -> Dict[str, any]:
         """
         Ask a question and get an answer.
         
         Args:
             question: The question to ask
-            chat_history: List of (question, answer) tuples
+            chat_history: List of (question, answer) tuples (unused in this simple version)
             
         Returns:
             Dictionary with answer and source documents
         """
-        if self.qa_chain is None:
-            raise ValueError("QA chain not initialized")
+        logger.info(f"Processing question: {question}")
         
-        chat_history = chat_history or []
-        result = self.qa_chain.invoke({
-            "question": question,
-            "chat_history": chat_history
-        })
+        # Get relevant documents
+        docs = self._get_relevant_docs(question)
+        logger.info(f"Found {len(docs)} relevant documents")
+        
+        if not docs:
+            return {
+                "answer": "No relevant documents found.",
+                "source_documents": [],
+                "chat_history": chat_history or []
+            }
+        
+        # Create prompt
+        prompt = self._create_prompt(question, docs)
+        
+        # Get answer from HuggingFace
+        try:
+            answer = self._call_huggingface(prompt)
+        except Exception as e:
+            return {
+                "answer": f"Error: {str(e)}",
+                "source_documents": docs,
+                "chat_history": chat_history or []
+            }
         
         return {
-            "answer": result["answer"],
-            "source_documents": result.get("source_documents", []),
-            "chat_history": chat_history + [(question, result["answer"])]
+            "answer": answer,
+            "source_documents": docs,
+            "chat_history": chat_history or []
         }
     
     def get_sources_formatted(self, source_docs: List[Document]) -> str:
