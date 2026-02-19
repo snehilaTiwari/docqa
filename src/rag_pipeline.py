@@ -18,7 +18,7 @@ class RAGPipeline:
     def __init__(
         self,
         vectorstore_manager: VectorStoreManager,
-        model_name: str = "Qwen/Qwen2.5-7B-Instruct:together",
+        model_name: str = "meta-llama/Llama-3.1-8B-Instruct:novita",
         hf_token: Optional[str] = None,
         temperature: float = 0.0
     ):
@@ -42,7 +42,7 @@ class RAGPipeline:
             api_key=self.hf_token
         )
     
-    def _get_relevant_docs(self, question: str, k: int = 4) -> List[Document]:
+    def _get_relevant_docs(self, question: str, k: int = 5) -> List[Document]:
         """Get relevant documents from vector store."""
         if self.vectorstore_manager.vectorstore is None:
             raise ValueError("Vector store not initialized")

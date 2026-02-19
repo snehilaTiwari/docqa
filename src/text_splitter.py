@@ -6,8 +6,8 @@ from langchain.schema import Document
 
 def split_documents(
     documents: List[Document],
-    chunk_size: int = 1000,
-    chunk_overlap: int = 200
+    chunk_size: int = 1500,
+    chunk_overlap: int = 300
 ) -> List[Document]:
     """
     Split documents into smaller chunks for embedding.
