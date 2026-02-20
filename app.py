@@ -49,31 +49,53 @@ def process_uploaded_files(uploaded_files: List) -> bool:
         True if successful, False otherwise
     """
     try:
+        # Check if vector store already exists
+        vectorstore_manager = VectorStoreManager()
+        
+        # Try to load existing vector store
+        with st.spinner("Checking for existing knowledge base..."):
+            existing_store = vectorstore_manager.load_vectorstore()
+        
+        if existing_store:
+            st.success("Found existing knowledge base! Loading...")
+            rag_pipeline = RAGPipeline(vectorstore_manager)
+            st.session_state.vectorstore_manager = vectorstore_manager
+            st.session_state.rag_pipeline = rag_pipeline
+            st.session_state.documents_loaded = True
+            st.session_state.chat_history = []
+            return True
+        
         # Save uploaded files temporarily
         temp_paths = []
-        for uploaded_file in uploaded_files:
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, uploaded_file in enumerate(uploaded_files):
+            status_text.text(f"Loading file {i+1}/{len(uploaded_files)}: {uploaded_file.name}")
             temp_path = f"./data/{uploaded_file.name}"
             os.makedirs("./data", exist_ok=True)
             with open(temp_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             temp_paths.append(temp_path)
+            progress_bar.progress((i+1) / (len(uploaded_files) * 3))
         
         # Load documents
-        with st.spinner("Loading documents..."):
-            documents = load_multiple_documents(temp_paths)
+        status_text.text("Processing documents...")
+        documents = load_multiple_documents(temp_paths)
+        progress_bar.progress(2 / 3)
         
         # Split documents
-        with st.spinner("Processing documents..."):
-            chunks = split_documents(documents)
+        status_text.text("Creating embeddings...")
+        chunks = split_documents(documents, chunk_size=1500, chunk_overlap=300)
         
         # Create vector store
-        with st.spinner("Creating knowledge base..."):
-            vectorstore_manager = VectorStoreManager()
-            vectorstore_manager.create_vectorstore(chunks)
+        status_text.text("Building knowledge base (this may take a while)...")
+        vectorstore_manager.create_vectorstore(chunks)
+        progress_bar.progress(1.0)
+        status_text.text("Done!")
         
         # Initialize RAG pipeline
-        with st.spinner("Setting up AI..."):
-            rag_pipeline = RAGPipeline(vectorstore_manager)
+        rag_pipeline = RAGPipeline(vectorstore_manager)
         
         # Store in session state
         st.session_state.vectorstore_manager = vectorstore_manager
@@ -89,6 +111,63 @@ def process_uploaded_files(uploaded_files: List) -> bool:
     
     except Exception as e:
         st.error(f"Error processing documents: {str(e)}")
+        return False
+
+
+def add_more_documents(uploaded_files: List) -> bool:
+    """
+    Add more documents to existing vector store.
+    
+    Args:
+        uploaded_files: List of Streamlit uploaded files
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        vectorstore_manager = st.session_state.vectorstore_manager
+        
+        # Save uploaded files temporarily
+        temp_paths = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i, uploaded_file in enumerate(uploaded_files):
+            status_text.text(f"Loading file {i+1}/{len(uploaded_files)}: {uploaded_file.name}")
+            temp_path = f"./data/{uploaded_file.name}"
+            os.makedirs("./data", exist_ok=True)
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            temp_paths.append(temp_path)
+            progress_bar.progress((i+1) / (len(uploaded_files) * 3))
+        
+        # Load documents
+        status_text.text("Processing documents...")
+        documents = load_multiple_documents(temp_paths)
+        progress_bar.progress(2 / 3)
+        
+        # Split documents
+        status_text.text("Creating embeddings...")
+        chunks = split_documents(documents, chunk_size=1500, chunk_overlap=300)
+        
+        # Add to existing vector store
+        status_text.text("Adding to knowledge base...")
+        vectorstore_manager.add_documents(chunks)
+        progress_bar.progress(1.0)
+        status_text.text("Done!")
+        
+        # Clear chat history (optional - keeps context cleaner)
+        st.session_state.chat_history = []
+        
+        # Clean up temp files
+        for path in temp_paths:
+            os.remove(path)
+        
+        st.success(f"Added {len(uploaded_files)} document(s) to knowledge base!")
+        return True
+    
+    except Exception as e:
+        st.error(f"Error adding documents: {str(e)}")
         return False
 
 
@@ -114,14 +193,21 @@ def main():
         )
         
         if uploaded_files:
-            if st.button("Process Documents", type="primary"):
-                process_uploaded_files(uploaded_files)
+            if st.session_state.documents_loaded:
+                if st.button("Add to Knowledge Base", type="primary"):
+                    add_more_documents(uploaded_files)
+            else:
+                if st.button("Process Documents", type="primary"):
+                    process_uploaded_files(uploaded_files)
         
         st.divider()
         
         if st.session_state.documents_loaded:
             st.success("✅ Documents loaded!")
-            if st.button("Clear All"):
+            if st.button("Clear All & Rebuild"):
+                import shutil
+                if os.path.exists("./data/chroma_db"):
+                    shutil.rmtree("./data/chroma_db")
                 st.session_state.vectorstore_manager = None
                 st.session_state.rag_pipeline = None
                 st.session_state.documents_loaded = False

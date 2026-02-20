@@ -42,7 +42,7 @@ class RAGPipeline:
             api_key=self.hf_token
         )
     
-    def _get_relevant_docs(self, question: str, k: int = 5) -> List[Document]:
+    def _get_relevant_docs(self, question: str, k: int = 8) -> List[Document]:
         """Get relevant documents from vector store."""
         if self.vectorstore_manager.vectorstore is None:
             raise ValueError("Vector store not initialized")

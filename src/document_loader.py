@@ -1,7 +1,7 @@
 """Document loading utilities for various file types."""
 from typing import List
 from langchain_community.document_loaders import (
-    PyPDFLoader,
+    PDFPlumberLoader,
     TextLoader,
     CSVLoader
 )
@@ -20,7 +20,7 @@ def load_document(file_path: str) -> List[Document]:
         List of Document objects
     """
     if file_path.lower().endswith('.pdf'):
-        loader = PyPDFLoader(file_path)
+        loader = PDFPlumberLoader(file_path)
     elif file_path.lower().endswith('.txt'):
         loader = TextLoader(file_path, encoding='utf-8')
     elif file_path.lower().endswith('.csv'):

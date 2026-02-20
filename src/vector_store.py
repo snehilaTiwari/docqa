@@ -12,7 +12,7 @@ class VectorStoreManager:
     def __init__(
         self,
         persist_directory: str = "./data/chroma_db",
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+        model_name: str = "BAAI/bge-small-en-v1.5"
     ):
         """
         Initialize the vector store manager.
@@ -24,7 +24,8 @@ class VectorStoreManager:
         self.persist_directory = persist_directory
         self.embeddings = HuggingFaceEmbeddings(
             model_name=model_name,
-            model_kwargs={'device': 'cpu'}
+            model_kwargs={'device': 'cpu'},
+            encode_kwargs={'normalize_embeddings': True}
         )
         self.vectorstore = None
     
@@ -45,12 +46,12 @@ class VectorStoreManager:
         )
         return self.vectorstore
     
-    def load_vectorstore(self) -> Chroma:
+    def load_vectorstore(self) -> Optional[Chroma]:
         """
         Load an existing vector store.
         
         Returns:
-            Chroma vector store
+            Chroma vector store or None
         """
         if os.path.exists(self.persist_directory):
             self.vectorstore = Chroma(
@@ -86,7 +87,7 @@ class VectorStoreManager:
     ) -> List[tuple]:
         """
         Search for similar documents with relevance scores.
-        
+
         Args:
             query: Search query
             k: Number of results to return
@@ -98,3 +99,19 @@ class VectorStoreManager:
             raise ValueError("Vector store not initialized. Load or create first.")
         
         return self.vectorstore.similarity_search_with_score(query, k=k)
+    
+    def add_documents(self, documents: List[Document]) -> Chroma:
+        """
+        Add documents to existing vector store.
+
+        Args:
+            documents: List of Document objects to add
+            
+        Returns:
+            Updated Chroma vector store
+        """
+        if self.vectorstore is None:
+            raise ValueError("Vector store not initialized. Load or create first.")
+        
+        self.vectorstore.add_documents(documents=documents)
+        return self.vectorstore
